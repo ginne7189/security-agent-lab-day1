@@ -1,5 +1,11 @@
 # Day 1 — Security by Design · Harness 기초
 
+> ⚠️ **이 가이드는 전체 모노레포(security-agent-lab) 기준 CLI 실습 설명입니다.**
+> 단독 Day 저장소에서는 README의 `streamlit run app.py`(버튼 클릭 실습)만 쓰면 됩니다.
+> `check_env.py`·`scripts/`·`orchestrator/`·`mcp_servers/` 는 모노레포에만 있습니다(이 저장소에는 없음).
+> `agents/`·`course/mini_labs/`·`policies/`·`sample_app/` 명령은 이 저장소에서도 그대로 동작합니다.
+
+
 ## 오늘의 목표
 - "정책 파일이 Agent 의 행동을 통제한다"는 감각을 잡는다.
 - 단일 SAST Agent 로 sample_app 을 점검하고, 정책 전/후 결과 차이를 재현한다.
@@ -25,7 +31,6 @@
 - **목적**: CLAUDE 정책이 보안 점검 결과(심각도 가중)를 바꾸는 것을 확인
 - **실행 명령**
   ```bash
-  python check_env.py
   python agents/sast_agent.py --target sample_app/ --policy policies/CLAUDE_base.md  # 정책 전
   python agents/sast_agent.py --target sample_app/ --policy policies/CLAUDE.md       # 정책 후
   python scripts/run_lab1_policy_compare.py --target sample_app/                      # 전후 비교 자동화
