@@ -30,6 +30,26 @@ AI_POLICIES = {
     "✏️ 한 줄 요약가": "당신은 요약 전문가입니다. 이 회의의 핵심을 정확히 한 문장으로만 요약하세요.",
 }
 
+# Day 1 '카톡 답장 톤 봇' — 같은 메시지, '톤(정책)'만 바꾸면 답장이 통째로 바뀐다
+TONE_POLICIES = {
+    "🩷 다정함": "당신은 다정하고 따뜻한 메신저 비서입니다. 아래 메시지를 의미는 그대로 두되 "
+               "받는 사람이 기분 좋아지도록 부드럽고 다정한 말투로, 이모지를 적절히 섞어 한국어로 다시 써주세요.",
+    "😏 츤데레": "당신은 츤데레 말투입니다. 아래 메시지를 의미는 그대로 두되 겉으론 툴툴대지만 "
+               "속은 챙겨주는 츤데레 톤으로 한국어로 다시 써주세요.",
+    "💼 비즈니스": "당신은 정중한 비즈니스 메신저 비서입니다. 아래 메시지를 의미는 그대로 두되 "
+                "격식 있고 프로페셔널한 존댓말로 다시 써주세요.",
+    "🤙 MZ 인싸": "당신은 MZ 인싸 말투입니다. 아래 메시지를 의미는 그대로 두되 요즘 유행어·줄임말과 "
+                "이모지를 섞은 발랄한 톤으로 한국어로 다시 써주세요.",
+}
+
+# AI 키가 없을 때 보여줄 결정론적 fallback (진짜 LLM은 아니지만 '톤이 바뀐다'를 체감)
+TONE_FALLBACK = {
+    "🩷 다정함": lambda m: f"{m} 😊 언제든 편하게 말해줘요, 항상 응원할게요 💕",
+    "😏 츤데레": lambda m: f"흥, {m}… 뭐 딱히 너 생각해서 그런 건 아니거든? 😤",
+    "💼 비즈니스": lambda m: f"안녕하세요. {m} 확인 부탁드립니다. 감사합니다.",
+    "🤙 MZ 인싸": lambda m: f"ㅇㅈ? {m} ㄹㅇ 핵인싸각 ㅋㅋ 🔥",
+}
+
 # Day 1 단일 에이전트(Meeting Agent) 구조도 — 입력 → [정책·파서·리포트] → 출력
 _DAY1_AGENT_DOT = '''
 digraph G {
@@ -226,6 +246,25 @@ def render_day1():
                 items = data2.get(fb[0], [])
                 st.markdown(f"**{fb[1]} (규칙 추출):**")
                 st.markdown("\n".join(f"- {x}" for x in items) or "- (없음)")
+    st.divider()
+    st.markdown("#### ④ 💬 (보너스) 카톡 답장 톤 봇 — 같은 메시지, '톤(정책)'만 바꾸면?")
+    st.caption("Day 1 핵심 한 번 더: **정책이 출력을 통제**. 회의록 대신 '카톡 한 줄'로 체감해 보세요. "
+               "톤(시스템 프롬프트)만 바꾸면 같은 말도 답장이 통째로 달라집니다.")
+    msg = st.text_input("보낼 메시지(원문)", value="나 오늘 좀 늦을 것 같아", key="d1_tone_msg")
+    tone = st.radio("답장 톤(정책) 고르기", list(TONE_POLICIES), horizontal=True, key="d1_tone_pick")
+    st.caption(f"현재 모드: {llm_client.mode_label()}")
+    if st.button("💬 톤 적용해서 답장 만들기", key="d1_tone_run") and msg.strip():
+        out = llm_client.complete(TONE_POLICIES[tone], msg.strip())
+        if out:
+            st.markdown(f"**{tone} 답장:**")
+            st.markdown(out)
+            st.success(f"메시지는 그대로인데 '톤(정책)'만 바꿨더니 답장이 통째로 바뀌죠? — 이게 하네스. ({llm_client.mode_label()})")
+        else:
+            st.warning("AI 키 없음 → 규칙 fallback 으로 톤만 입혀 보여줍니다. (키를 넣으면 진짜 LLM이 자연스럽게 다시 씁니다)")
+            st.markdown(f"**{tone} 답장 (규칙):**")
+            st.markdown(TONE_FALLBACK[tone](msg.strip()))
+        st.caption("👉 톤을 바꿔가며 다시 눌러보세요. 같은 메시지가 다정 ↔ 츤데레 ↔ 비즈니스 ↔ MZ 로 변신합니다.")
+
     with st.expander("🎯 개선 과제 (직접 해보기)"):
         st.markdown(
             "- `meeting_notes.txt` 에 새 발언(예: '현우: 로그 보관 정책도 정리할게요')을 추가 → 자동 분류되는지 확인\n"
