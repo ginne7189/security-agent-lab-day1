@@ -30,6 +30,32 @@ AI_POLICIES = {
     "✏️ 한 줄 요약가": "당신은 요약 전문가입니다. 이 회의의 핵심을 정확히 한 문장으로만 요약하세요.",
 }
 
+# Day 1 단일 에이전트(Meeting Agent) 구조도 — 입력 → [정책·파서·리포트] → 출력
+_DAY1_AGENT_DOT = '''
+digraph G {
+  rankdir=LR;
+  bgcolor="transparent";
+  node [shape=box, style="rounded,filled", fontname="sans-serif", fontsize=11, color="#cbd5e1"];
+  edge [color="#94a3b8", fontname="sans-serif", fontsize=10];
+
+  input  [label="📥 입력\\n회의 메모(원문)\\n· 기본 예시 또는 업로드 파일", fillcolor="#eef2ff"];
+  output [label="📤 출력\\n회의 정리 리포트(Markdown)", fillcolor="#dcfce7"];
+
+  subgraph cluster_agent {
+    label="🤖 단일 에이전트 (Meeting Agent)";
+    fontname="sans-serif"; fontsize=12; labelloc="t";
+    style="rounded,dashed,filled"; fillcolor="#f8fafc"; color="#64748b";
+    policy [label="① 정책\\nSECTIONS 체크박스\\n(무엇을 낼지 결정)", fillcolor="#fff7ed"];
+    parse  [label="② 파서\\n_parse_notes()\\n(문장 → 섹션 분류)", fillcolor="#ffffff"];
+    build  [label="③ 리포트 작성\\nbuild_report()\\n(허용 섹션만 출력)", fillcolor="#ffffff"];
+    parse -> build;
+    policy -> build [style=dashed, label="필터"];
+  }
+  input -> parse;
+  build -> output;
+}
+'''
+
 
 def render_overview():
     st.subheader("👋 이 대시보드는 '데모 실행기'예요")
@@ -118,12 +144,32 @@ def render_why():
 
 def render_day1():
     st.subheader("Day 1 · 정책이 결과를 바꾼다")
+
+    with st.expander("🧩 이 실습의 '단일 에이전트' 구조 — 어디서 무슨 일을 하나", expanded=True):
+        st.graphviz_chart(_DAY1_AGENT_DOT)
+        st.caption(
+            "회색 점선 박스 전체가 **단일 에이전트 1개**입니다. "
+            "입력(회의 메모)을 받아 → ① **정책**(체크박스)이 '무엇을 낼지' 결정하고 "
+            "→ ② **파서**가 문장을 섹션별로 분류 → ③ **리포트 작성**이 정책이 허용한 섹션만 "
+            "Markdown으로 출력합니다. 아래 Mini Lab에서 정책 체크박스를 끄면 ③의 출력이 즉시 바뀝니다."
+        )
+
     st.markdown("#### ① Mini Lab — 회의 메모 정리 (정책 체크박스를 켜고 꺼보세요!)")
     notes_path = os.path.join(ROOT, "course/mini_labs/day01_single_agent/meeting_notes.txt")
-    if not os.path.exists(notes_path):
-        st.error("meeting_notes.txt 가 없습니다. 터미널에서 `git checkout .` 으로 복구하세요.")
-    else:
+    up = st.file_uploader(
+        "📎 회의 메모 파일 올리기 (.txt / .md) — 안 올리면 아래 기본 예시로 진행됩니다",
+        type=["txt", "md"], key="d1_upload")
+    if up is not None:
+        notes = up.getvalue().decode("utf-8", errors="replace")
+        st.success(f"업로드한 파일 사용 중: **{up.name}** · {len(notes):,}자 "
+                   "— Mini Lab과 ③ AI 하네스가 모두 이 파일 기준으로 동작합니다.")
+    elif os.path.exists(notes_path):
         notes = open(notes_path, encoding="utf-8").read()
+    else:
+        notes = ""
+        st.error("기본 meeting_notes.txt 가 없습니다. 위에서 파일을 직접 올려주세요.")
+
+    if notes:
         c1, c2 = st.columns([1, 2])
         with c1:
             st.markdown("**정책: 어떤 섹션을 출력할까?**")
@@ -160,13 +206,12 @@ def render_day1():
     st.markdown("#### ③ (보너스) 🧠 AI 하네스 — 같은 회의록, '시스템 프롬프트(정책)'만 바꾸면?")
     st.caption("Day 1 핵심: **정책이 출력을 통제**. ②는 규칙으로, ③은 진짜 AI로 같은 원리를 보여줍니다. "
                "AI 키가 없으면 규칙 fallback 으로 안전하게 동작해요.")
-    notes_path2 = os.path.join(ROOT, "course/mini_labs/day01_single_agent/meeting_notes.txt")
-    if os.path.exists(notes_path2):
+    if notes:
         pick = st.radio("AI 정책(시스템 프롬프트) 고르기", list(AI_POLICIES), horizontal=True, key="d1_ai_pick")
         system = st.text_area("시스템 프롬프트 (직접 고쳐도 됩니다)", value=AI_POLICIES[pick], height=90, key="d1_ai_sys")
         st.caption(f"현재 모드: {llm_client.mode_label()}")
         if st.button("🧠 AI 하네스 실행", key="d1_ai_run"):
-            notes2 = open(notes_path2, encoding="utf-8").read()
+            notes2 = notes
             out = llm_client.complete(system, notes2)
             if out:
                 st.markdown("**🧠 AI 출력 (정책대로):**")
